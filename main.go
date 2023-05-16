@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"shortcuts/utils"
+	"strconv"
 )
 
 type Shortcut struct {
@@ -29,9 +30,7 @@ var form = tview.NewForm()
 var bindingForm = tview.NewForm()
 var shortcutList = tview.NewList().ShowSecondaryText(false).SetSelectedBackgroundColor(tcell.Color133)
 var flex = tview.NewFlex()
-
 var detailFlex = tview.NewFlex()
-
 var table = tview.NewTable().SetBorders(true)
 var text = tview.NewTextView().
 	SetTextColor(tcell.Color133).
@@ -78,21 +77,21 @@ func main() {
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Rune() == 113 && !form.HasFocus() && !bindingForm.HasFocus() {
 			app.Stop()
-		} else if event.Rune() == 97 && !form.HasFocus() && !bindingForm.HasFocus() {
+		} else if event.Rune() == 97 && (shortcutList.HasFocus() || text.HasFocus()) {
 			form.Clear(true)
 			addShortcutForm()
 			setDetailFlex(form, "Add Shortcut")
 			app.SetFocus(form)
-		} else if event.Rune() == 65 && !form.HasFocus() && !bindingForm.HasFocus() {
+		} else if event.Rune() == 65 && (shortcutList.HasFocus() || text.HasFocus()) {
 			bindingForm.Clear(true)
 			addBinding()
 			index := shortcutList.GetCurrentItem()
 			shortcut := shortcuts[index]
 			setDetailFlex(bindingForm, "Add Binding to "+shortcut.Name)
 			app.SetFocus(bindingForm)
-		} else if event.Rune() == 100 && !form.HasFocus() && !bindingForm.HasFocus() {
+		} else if event.Rune() == 100 && (shortcutList.HasFocus() || text.HasFocus()) {
 			deleteShortcut()
-		} else if event.Rune() == 9 && !form.HasFocus() && !bindingForm.HasFocus() {
+		} else if event.Rune() == 9 && (shortcutList.HasFocus() || text.HasFocus()) {
 			primitive := app.GetFocus()
 			actualPrimitiveIndex := primitives[primitive]
 			app.SetFocus(getNextFocus(actualPrimitiveIndex + 1))
@@ -132,9 +131,9 @@ func getNextFocus(index int) tview.Primitive {
 func setDetailFlex(element tview.Primitive, title string) {
 	detailFlex.Clear()
 	detailFlex.SetBorder(true)
-	detailFlex.AddItem(tview.NewFlex(), 0, 4, true)
+	detailFlex.AddItem(tview.NewFlex(), 0, 2, true)
 	detailFlex.AddItem(element, 0, 1, true)
-	detailFlex.AddItem(tview.NewFlex(), 0, 4, true)
+	detailFlex.AddItem(tview.NewFlex(), 0, 2, true)
 	detailFlex.SetTitle(title).SetTitleColor(tcell.Color133)
 }
 
@@ -148,12 +147,15 @@ func addContactList() {
 func deleteShortcut() {
 	index := shortcutList.GetCurrentItem()
 	shortcutList.RemoveItem(index)
-	shortcuts = remove(shortcuts, index)
+	shortcuts = removeShortcut(shortcuts, index)
 	saveList(dbFile)
 	shortcutList.SetCurrentItem(index - 1)
 }
 
-func remove(slice []Shortcut, s int) []Shortcut {
+func removeShortcut(slice []Shortcut, s int) []Shortcut {
+	return append(slice[:s], slice[s+1:]...)
+}
+func removeBinding(slice []Bindings, s int) []Bindings {
 	return append(slice[:s], slice[s+1:]...)
 }
 
@@ -238,18 +240,21 @@ func addBinding() *tview.Form {
 }
 
 func setBindingsTable(shortcut *Shortcut) {
-	var cols = 2
+	var cols = 3
 	table.Clear()
 	detailFlex.SetTitle(shortcut.Name + " - Bindings")
-	table.SetCell(0, 0, tview.NewTableCell("Function").SetTextColor(tcell.Color133))
-	table.SetCell(0, 1, tview.NewTableCell("Binding").SetTextColor(tcell.Color133))
+	table.SetCell(0, 0, tview.NewTableCell("Index").SetTextColor(tcell.Color133))
+	table.SetCell(0, 1, tview.NewTableCell("Function").SetTextColor(tcell.Color133))
+	table.SetCell(0, 2, tview.NewTableCell("Binding").SetTextColor(tcell.Color133))
 	var i = 0
 	for r := 1; r <= len(shortcut.Bindings); r++ {
 		for c := 0; c < cols; c++ {
 			var value = ""
 			if c == 0 {
-				value = shortcut.Bindings[i].Function
+				value = strconv.Itoa(i)
 			} else if c == 1 {
+				value = shortcut.Bindings[i].Function
+			} else if c == 2 {
 				value = shortcut.Bindings[i].Keybind
 			}
 			table.SetCell(r, c,
@@ -258,4 +263,29 @@ func setBindingsTable(shortcut *Shortcut) {
 		}
 		i++
 	}
+	table.Select(1, 0).SetFixed(1, 1).SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEscape {
+			table.SetSelectable(false, false)
+		}
+		if key == tcell.KeyEnter {
+			table.SetSelectable(true, false)
+		}
+	}).SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		rows, cols := table.GetSelectable()
+		if event.Rune() == 101 && (rows || cols) {
+			// edit
+		} else if event.Rune() == 100 && (rows || cols) {
+			// delete
+			row, col := table.GetSelection()
+			if row == 0 {
+				return event
+			}
+			_ = col
+			shortcut.Bindings = removeBinding(shortcut.Bindings, row-1)
+			saveList(dbFile)
+			table.RemoveRow(row)
+			table.SetSelectable(false, false)
+		}
+		return event
+	})
 }
