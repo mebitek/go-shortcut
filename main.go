@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"io/ioutil"
 	"log"
 	"os"
+	"shortcuts/utils"
 )
 
 type Shortcut struct {
@@ -22,7 +22,6 @@ type Bindings struct {
 
 var shortcuts = make([]Shortcut, 0)
 
-// Tview
 var pages = tview.NewPages()
 var app = tview.NewApplication()
 var form = tview.NewForm()
@@ -41,11 +40,14 @@ var text = tview.NewTextView().
 var primitives = make(map[tview.Primitive]int)
 var primitivesIndexMap = make(map[int]tview.Primitive)
 
+var dbFile = ""
+
 func main() {
 
 	initFocusMap()
+	dbFile = utils.InitConfingDirectory()
 
-	content, err := ioutil.ReadFile("./db.json")
+	content, err := os.ReadFile(dbFile)
 	if err != nil {
 		log.Fatal("Error when opening file: ", err)
 	}
@@ -58,7 +60,7 @@ func main() {
 
 	addContactList()
 
-	shortcutList.SetSelectedFunc(func(index int, name string, second_name string, shortcut rune) {
+	shortcutList.SetSelectedFunc(func(index int, name string, secondName string, shortcut rune) {
 		setBindingsTable(&shortcuts[index])
 		setDetailFlex(table, "Bindings")
 	})
@@ -147,7 +149,7 @@ func deleteShortcut() {
 	index := shortcutList.GetCurrentItem()
 	shortcutList.RemoveItem(index)
 	shortcuts = remove(shortcuts, index)
-	saveList()
+	saveList(dbFile)
 	shortcutList.SetCurrentItem(index - 1)
 }
 
@@ -155,12 +157,15 @@ func remove(slice []Shortcut, s int) []Shortcut {
 	return append(slice[:s], slice[s+1:]...)
 }
 
-func saveList() {
+func saveList(dbFile string) {
 	output, err := json.Marshal(shortcuts)
 	if err != nil {
 		log.Fatal(err)
 	}
-	ioutil.WriteFile("./db.json", output, os.ModePerm)
+	err = os.WriteFile(dbFile, output, os.ModePerm)
+	if err != nil {
+		panic(err.Error())
+	}
 }
 
 func addShortcutForm() *tview.Form {
@@ -185,7 +190,7 @@ func addShortcutForm() *tview.Form {
 	form.AddButton("Save", func() {
 		shortcuts = append(shortcuts, shortcut)
 		addContactList()
-		saveList()
+		saveList(dbFile)
 		setDetailFlex(table, "Bindings")
 		index := shortcutList.GetItemCount() - 1
 		shortcutList.SetCurrentItem(index)
@@ -220,7 +225,7 @@ func addBinding() *tview.Form {
 		shortcut := shortcuts[index]
 		shortcut.Bindings = append(shortcut.Bindings, binding)
 		shortcuts[index] = shortcut
-		saveList()
+		saveList(dbFile)
 		setDetailFlex(table, "Bindings")
 		setBindingsTable(&shortcut)
 		index = shortcutList.GetItemCount() - 1
