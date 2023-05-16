@@ -36,7 +36,7 @@ var detailFlex = tview.NewFlex()
 var table = tview.NewTable().SetBorders(true)
 var text = tview.NewTextView().
 	SetTextColor(tcell.Color133).
-	SetText("(a) to add a new shortcut - (d) to delete shortcut - (q) to quit")
+	SetText("(a) to add a new shortcut - (A) to add binding to selected item (d) to delete shortcut - (q) to quit")
 
 var primitives = make(map[tview.Primitive]int)
 var primitivesIndexMap = make(map[int]tview.Primitive)
