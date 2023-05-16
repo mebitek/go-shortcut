@@ -1,0 +1,1 @@
+[{"name":"neomutt","category":"mail","bindings":[{"function":"go to bottom","keybind":"G"},{"function":"go to top","keybind":"gg"},{"function":"sync mail box","keybind":"TAB"},{"function":"flag mail","keybind":"F"},{"function":"delete mail","keybind":"D"}]}]
