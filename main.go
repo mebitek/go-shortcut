@@ -35,10 +35,12 @@ var detailFlex = tview.NewFlex()
 var table = tview.NewTable().SetBorders(true)
 var menu = tview.NewTextView().
 	SetTextColor(tcell.Color133).
-	SetText("(a) to add a new application - (A) to add binding to selected application (d) to delete application - (q) to quit")
+	SetText("(a) to add a new application - (d) to delete application - [ENTER] edit bindings - (q) to quit")
 
 var primitives = make(map[tview.Primitive]int)
 var primitivesIndexMap = make(map[int]tview.Primitive)
+
+var editMode = false
 
 var dbFile = ""
 
@@ -58,7 +60,7 @@ func main() {
 		log.Fatal("Error during Unmarshal(): ", err)
 	}
 
-	addContactList()
+	addApplicationList()
 
 	applicationList.SetSelectedFunc(func(index int, name string, secondName string, shortcut rune) {
 		setBindingsTable(&applications[index])
@@ -79,7 +81,7 @@ func main() {
 		if event.Rune() == 113 && !form.HasFocus() && !bindingForm.HasFocus() {
 			// q
 			app.Stop()
-		} else if event.Rune() == 97 && (!form.HasFocus() && !bindingForm.HasFocus()) {
+		} else if event.Rune() == 97 && (!form.HasFocus() && !bindingForm.HasFocus() && !editMode) {
 			// a
 			form.Clear(true)
 			addApplicationForm()
@@ -87,13 +89,8 @@ func main() {
 			app.SetFocus(form)
 		} else if event.Rune() == 65 && (!form.HasFocus() && !bindingForm.HasFocus()) {
 			// shift + A
-			bindingForm.Clear(true)
-			addBindingForm(Bindings{}, false)
-			index := applicationList.GetCurrentItem()
-			application := applications[index]
-			setDetailFlex(bindingForm, "Add Binding to "+application.Name)
-			app.SetFocus(bindingForm)
-		} else if event.Rune() == 100 && (!form.HasFocus() && !bindingForm.HasFocus()) {
+
+		} else if event.Rune() == 100 && (!form.HasFocus() && !bindingForm.HasFocus() && !editMode) {
 			// d
 			deleteApplication()
 		} else if event.Rune() == 9 && (!form.HasFocus() && !bindingForm.HasFocus()) {
@@ -160,7 +157,7 @@ func getNextFocus(index int) tview.Primitive {
 }
 
 func setDetailFlex(element tview.Primitive, title string) {
-	app.SetFocus(applicationList)
+	app.SetFocus(element)
 	detailFlex.Clear()
 	detailFlex.SetBorder(true)
 	detailFlex.AddItem(tview.NewFlex(), 0, 2, false)
@@ -169,11 +166,17 @@ func setDetailFlex(element tview.Primitive, title string) {
 	detailFlex.SetTitle(title).SetTitleColor(tcell.Color133)
 }
 
-func addContactList() {
+func addApplicationList() {
 	applicationList.Clear()
 	for index, application := range applications {
 		applicationList.AddItem(application.Name+" - "+application.Category, " ", rune(49+index), nil)
 	}
+	applicationList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyTAB {
+			return nil
+		}
+		return event
+	})
 }
 
 func deleteApplication() {
@@ -222,7 +225,7 @@ func addApplicationForm() *tview.Form {
 
 	form.AddButton("Save", func() {
 		applications = append(applications, application)
-		addContactList()
+		addApplicationList()
 		saveList(dbFile)
 		setDetailFlex(table, "Bindings")
 		index := applicationList.GetItemCount() - 1
@@ -269,9 +272,9 @@ func addBindingForm(binding Bindings, edit bool) *tview.Form {
 		}
 		applications[index] = application
 		saveList(dbFile)
-		setDetailFlex(table, "Bindings")
+		setDetailFlex(table, "Bindings - EDIT")
 		setBindingsTable(&application)
-		index = applicationList.GetItemCount() - 1
+		index = applicationList.GetItemCount() - 2
 		applicationList.SetCurrentItem(index)
 		bindingForm.Clear(true)
 		app.SetFocus(table)
@@ -280,7 +283,7 @@ func addBindingForm(binding Bindings, edit bool) *tview.Form {
 
 	bindingForm.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
-			setDetailFlex(table, "Bindings")
+			setDetailFlex(table, "Bindings - EDIT")
 			app.SetFocus(table)
 		}
 		return event
@@ -292,7 +295,6 @@ func addBindingForm(binding Bindings, edit bool) *tview.Form {
 func setBindingsTable(application *Application) {
 	var cols = 3
 	table.Clear()
-	detailFlex.SetTitle(application.Name + " - Bindings")
 	table.SetCell(0, 0, tview.NewTableCell("Index").SetTextColor(tcell.Color133))
 	table.SetCell(0, 1, tview.NewTableCell("Function").SetTextColor(tcell.Color133))
 	table.SetCell(0, 2, tview.NewTableCell("Binding").SetTextColor(tcell.Color133))
@@ -316,19 +318,33 @@ func setBindingsTable(application *Application) {
 	table.Select(1, 0).SetFixed(1, 1).SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEscape {
 			table.SetSelectable(false, false)
+			detailFlex.SetTitle(application.Name + " Bindings")
+			editMode = false
 		}
 		if key == tcell.KeyEnter {
 			table.SetSelectable(true, false)
+			detailFlex.SetTitle(detailFlex.GetTitle() + " - EDIT")
+			editMode = true
 		}
 	}).SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		rows, cols := table.GetSelectable()
-		if event.Rune() == 101 && (rows || cols) {
+		if event.Rune() == 97 && editMode {
+			bindingForm.Clear(true)
+			addBindingForm(Bindings{}, false)
+			index := applicationList.GetCurrentItem()
+			application := applications[index]
+			setDetailFlex(bindingForm, "Add Binding to "+application.Name)
+			app.SetFocus(bindingForm)
+		} else if event.Rune() == 101 && (rows || cols) {
 			// edit
 			row, col := table.GetSelection()
 			if row == 0 {
 				return event
 			}
 			_ = col
+			if table.GetRowCount() == 1 {
+				return event
+			}
 			addBindingForm(application.Bindings[row-1], true)
 			setDetailFlex(bindingForm, "Edit Binding to "+application.Name)
 			app.SetFocus(bindingForm)
@@ -339,10 +355,12 @@ func setBindingsTable(application *Application) {
 				return event
 			}
 			_ = col
+			if table.GetRowCount() == 1 {
+				return event
+			}
 			application.Bindings = removeBinding(application.Bindings, row-1)
 			saveList(dbFile)
 			table.RemoveRow(row)
-			table.SetSelectable(false, false)
 		}
 		return event
 	})
