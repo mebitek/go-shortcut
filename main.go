@@ -10,7 +10,7 @@ import (
 	"strconv"
 )
 
-type Shortcut struct {
+type Application struct {
 	Name     string     `json:"name"`
 	Category string     `json:"category"`
 	Bindings []Bindings `json:"bindings"`
@@ -21,20 +21,20 @@ type Bindings struct {
 	Keybind  string `json:"keybind"`
 }
 
-var shortcuts = make([]Shortcut, 0)
+var applications = make([]Application, 0)
 
 var pages = tview.NewPages()
 var app = tview.NewApplication()
 var form = tview.NewForm()
 
 var bindingForm = tview.NewForm()
-var shortcutList = tview.NewList().ShowSecondaryText(false).SetSelectedBackgroundColor(tcell.Color133)
+var applicationList = tview.NewList().ShowSecondaryText(false).SetSelectedBackgroundColor(tcell.Color133)
 var flex = tview.NewFlex()
 var detailFlex = tview.NewFlex()
 var table = tview.NewTable().SetBorders(true)
-var text = tview.NewTextView().
+var menu = tview.NewTextView().
 	SetTextColor(tcell.Color133).
-	SetText("(a) to add a new shortcut - (A) to add binding to selected item (d) to delete shortcut - (q) to quit")
+	SetText("(a) to add a new application - (A) to add binding to selected application (d) to delete application - (q) to quit")
 
 var primitives = make(map[tview.Primitive]int)
 var primitivesIndexMap = make(map[int]tview.Primitive)
@@ -51,7 +51,7 @@ func main() {
 		log.Fatal("Error when opening file: ", err)
 	}
 
-	err = json.Unmarshal(content, &shortcuts)
+	err = json.Unmarshal(content, &applications)
 
 	if err != nil {
 		log.Fatal("Error during Unmarshal(): ", err)
@@ -59,39 +59,39 @@ func main() {
 
 	addContactList()
 
-	shortcutList.SetSelectedFunc(func(index int, name string, secondName string, shortcut rune) {
-		setBindingsTable(&shortcuts[index])
+	applicationList.SetSelectedFunc(func(index int, name string, secondName string, shortcut rune) {
+		setBindingsTable(&applications[index])
 		setDetailFlex(table, "Bindings")
 	})
 
-	shortcutList.SetBorder(true).SetTitle("Shortcuts").SetTitleColor(tcell.Color133)
-	text.SetBorder(true).SetTitle("Menu").SetTitleColor(tcell.Color133)
+	applicationList.SetBorder(true).SetTitle("Applications").SetTitleColor(tcell.Color133)
+	menu.SetBorder(true).SetTitle("Menu").SetTitleColor(tcell.Color133)
 	setDetailFlex(table, "Bindings")
 
 	flex.SetDirection(tview.FlexRow).
 		AddItem(tview.NewFlex().
-			AddItem(shortcutList, 0, 1, true).
+			AddItem(applicationList, 0, 1, true).
 			AddItem(detailFlex, 0, 4, true), 0, 6, true).
-		AddItem(text, 0, 1, true)
+		AddItem(menu, 0, 1, true)
 
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Rune() == 113 && !form.HasFocus() && !bindingForm.HasFocus() {
 			app.Stop()
-		} else if event.Rune() == 97 && (shortcutList.HasFocus() || text.HasFocus()) {
+		} else if event.Rune() == 97 && (applicationList.HasFocus() || menu.HasFocus()) {
 			form.Clear(true)
-			addShortcutForm()
-			setDetailFlex(form, "Add Shortcut")
+			addApplicationForm()
+			setDetailFlex(form, "Add Application")
 			app.SetFocus(form)
-		} else if event.Rune() == 65 && (shortcutList.HasFocus() || text.HasFocus()) {
+		} else if event.Rune() == 65 && (applicationList.HasFocus() || menu.HasFocus()) {
 			bindingForm.Clear(true)
 			addBinding()
-			index := shortcutList.GetCurrentItem()
-			shortcut := shortcuts[index]
-			setDetailFlex(bindingForm, "Add Binding to "+shortcut.Name)
+			index := applicationList.GetCurrentItem()
+			application := applications[index]
+			setDetailFlex(bindingForm, "Add Binding to "+application.Name)
 			app.SetFocus(bindingForm)
-		} else if event.Rune() == 100 && (shortcutList.HasFocus() || text.HasFocus()) {
-			deleteShortcut()
-		} else if event.Rune() == 9 && (shortcutList.HasFocus() || text.HasFocus()) {
+		} else if event.Rune() == 100 && (applicationList.HasFocus() || menu.HasFocus()) {
+			deleteApplication()
+		} else if event.Rune() == 9 && (!form.HasFocus() && !bindingForm.HasFocus()) {
 			primitive := app.GetFocus()
 			actualPrimitiveIndex := primitives[primitive]
 			app.SetFocus(getNextFocus(actualPrimitiveIndex + 1))
@@ -101,8 +101,6 @@ func main() {
 	})
 
 	pages.AddPage("Menu", flex, true, true)
-	pages.AddPage("Add Contact", form, true, false)
-	pages.AddPage("Add Binding", bindingForm, true, false)
 
 	if err := app.SetRoot(pages, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
@@ -111,12 +109,12 @@ func main() {
 }
 
 func initFocusMap() {
-	primitives[text] = 0
-	primitives[shortcutList] = 1
+	primitives[menu] = 0
+	primitives[applicationList] = 1
 	primitives[table] = 2
 
-	primitivesIndexMap[0] = text
-	primitivesIndexMap[1] = shortcutList
+	primitivesIndexMap[0] = menu
+	primitivesIndexMap[1] = applicationList
 	primitivesIndexMap[2] = table
 }
 
@@ -138,21 +136,21 @@ func setDetailFlex(element tview.Primitive, title string) {
 }
 
 func addContactList() {
-	shortcutList.Clear()
-	for index, contact := range shortcuts {
-		shortcutList.AddItem(contact.Name+" - "+contact.Category, " ", rune(49+index), nil)
+	applicationList.Clear()
+	for index, application := range applications {
+		applicationList.AddItem(application.Name+" - "+application.Category, " ", rune(49+index), nil)
 	}
 }
 
-func deleteShortcut() {
-	index := shortcutList.GetCurrentItem()
-	shortcutList.RemoveItem(index)
-	shortcuts = removeShortcut(shortcuts, index)
+func deleteApplication() {
+	index := applicationList.GetCurrentItem()
+	applicationList.RemoveItem(index)
+	applications = removeApplication(applications, index)
 	saveList(dbFile)
-	shortcutList.SetCurrentItem(index - 1)
+	applicationList.SetCurrentItem(index - 1)
 }
 
-func removeShortcut(slice []Shortcut, s int) []Shortcut {
+func removeApplication(slice []Application, s int) []Application {
 	return append(slice[:s], slice[s+1:]...)
 }
 func removeBinding(slice []Bindings, s int) []Bindings {
@@ -160,7 +158,7 @@ func removeBinding(slice []Bindings, s int) []Bindings {
 }
 
 func saveList(dbFile string) {
-	output, err := json.Marshal(shortcuts)
+	output, err := json.Marshal(applications)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -170,7 +168,7 @@ func saveList(dbFile string) {
 	}
 }
 
-func addShortcutForm() *tview.Form {
+func addApplicationForm() *tview.Form {
 	form.Clear(true)
 	form.SetFieldTextColor(tcell.Color133)
 	form.SetLabelColor(tcell.Color133)
@@ -179,25 +177,25 @@ func addShortcutForm() *tview.Form {
 	form.SetButtonBackgroundColor(tcell.Color133)
 	form.SetBorder(true)
 
-	shortcut := Shortcut{}
+	application := Application{}
 
 	form.AddInputField("Name", "", 20, nil, func(name string) {
-		shortcut.Name = name
+		application.Name = name
 	})
 
 	form.AddInputField("Category", "", 20, nil, func(category string) {
-		shortcut.Category = category
+		application.Category = category
 	})
 
 	form.AddButton("Save", func() {
-		shortcuts = append(shortcuts, shortcut)
+		applications = append(applications, application)
 		addContactList()
 		saveList(dbFile)
 		setDetailFlex(table, "Bindings")
-		index := shortcutList.GetItemCount() - 1
-		shortcutList.SetCurrentItem(index)
+		index := applicationList.GetItemCount() - 1
+		applicationList.SetCurrentItem(index)
 		form.Clear(true)
-		app.SetFocus(shortcutList)
+		app.SetFocus(applicationList)
 
 	})
 	return form
@@ -223,39 +221,39 @@ func addBinding() *tview.Form {
 
 	bindingForm.AddButton("Save", func() {
 
-		var index = shortcutList.GetCurrentItem()
-		shortcut := shortcuts[index]
-		shortcut.Bindings = append(shortcut.Bindings, binding)
-		shortcuts[index] = shortcut
+		var index = applicationList.GetCurrentItem()
+		application := applications[index]
+		application.Bindings = append(application.Bindings, binding)
+		applications[index] = application
 		saveList(dbFile)
 		setDetailFlex(table, "Bindings")
-		setBindingsTable(&shortcut)
-		index = shortcutList.GetItemCount() - 1
-		shortcutList.SetCurrentItem(index)
+		setBindingsTable(&application)
+		index = applicationList.GetItemCount() - 1
+		applicationList.SetCurrentItem(index)
 		bindingForm.Clear(true)
-		app.SetFocus(shortcutList)
+		app.SetFocus(applicationList)
 
 	})
 	return bindingForm
 }
 
-func setBindingsTable(shortcut *Shortcut) {
+func setBindingsTable(application *Application) {
 	var cols = 3
 	table.Clear()
-	detailFlex.SetTitle(shortcut.Name + " - Bindings")
+	detailFlex.SetTitle(application.Name + " - Bindings")
 	table.SetCell(0, 0, tview.NewTableCell("Index").SetTextColor(tcell.Color133))
 	table.SetCell(0, 1, tview.NewTableCell("Function").SetTextColor(tcell.Color133))
 	table.SetCell(0, 2, tview.NewTableCell("Binding").SetTextColor(tcell.Color133))
 	var i = 0
-	for r := 1; r <= len(shortcut.Bindings); r++ {
+	for r := 1; r <= len(application.Bindings); r++ {
 		for c := 0; c < cols; c++ {
 			var value = ""
 			if c == 0 {
 				value = strconv.Itoa(i)
 			} else if c == 1 {
-				value = shortcut.Bindings[i].Function
+				value = application.Bindings[i].Function
 			} else if c == 2 {
-				value = shortcut.Bindings[i].Keybind
+				value = application.Bindings[i].Keybind
 			}
 			table.SetCell(r, c,
 				tview.NewTableCell(value).
@@ -281,7 +279,7 @@ func setBindingsTable(shortcut *Shortcut) {
 				return event
 			}
 			_ = col
-			shortcut.Bindings = removeBinding(shortcut.Bindings, row-1)
+			application.Bindings = removeBinding(application.Bindings, row-1)
 			saveList(dbFile)
 			table.RemoveRow(row)
 			table.SetSelectable(false, false)
