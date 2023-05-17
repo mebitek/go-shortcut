@@ -1,6 +1,8 @@
 # go-shortcut
 simple TUI app to store shortcuts reminders
 
+![Screenshot 2023-05-17-11-39-17](https://github.com/mebitek/go-shortcut/assets/1067967/632c7d53-6d58-4a91-9596-d4526cc8fcb9)
+
 # dependecies 
 
 [TVIEW](https://github.com/rivo/tview)
@@ -28,4 +30,5 @@ go run main.go
 | e        | in table selection mode edit selected binding          |
 | d        | in table selection mode delete selected binding        |
 | ESC      | exit table selection mode                              |
+
 
