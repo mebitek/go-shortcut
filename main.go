@@ -17,6 +17,7 @@ type Application struct {
 }
 
 type Bindings struct {
+	Index    int    `json:"index"`
 	Function string `json:"function"`
 	Keybind  string `json:"keybind"`
 }
@@ -43,7 +44,7 @@ var dbFile = ""
 
 func main() {
 
-	initFocusMap()
+	initFocus()
 	dbFile = utils.InitConfingDirectory()
 
 	content, err := os.ReadFile(dbFile)
@@ -61,7 +62,7 @@ func main() {
 
 	applicationList.SetSelectedFunc(func(index int, name string, secondName string, shortcut rune) {
 		setBindingsTable(&applications[index])
-		setDetailFlex(table, "Bindings")
+		setDetailFlex(table, applications[index].Name+" Bindings")
 	})
 
 	applicationList.SetBorder(true).SetTitle("Applications").SetTitleColor(tcell.Color133)
@@ -76,22 +77,27 @@ func main() {
 
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Rune() == 113 && !form.HasFocus() && !bindingForm.HasFocus() {
+			// q
 			app.Stop()
-		} else if event.Rune() == 97 && (applicationList.HasFocus() || menu.HasFocus()) {
+		} else if event.Rune() == 97 && (!form.HasFocus() && !bindingForm.HasFocus()) {
+			// a
 			form.Clear(true)
 			addApplicationForm()
 			setDetailFlex(form, "Add Application")
 			app.SetFocus(form)
-		} else if event.Rune() == 65 && (applicationList.HasFocus() || menu.HasFocus()) {
+		} else if event.Rune() == 65 && (!form.HasFocus() && !bindingForm.HasFocus()) {
+			// shift + A
 			bindingForm.Clear(true)
-			addBindingForm()
+			addBindingForm(Bindings{}, false)
 			index := applicationList.GetCurrentItem()
 			application := applications[index]
 			setDetailFlex(bindingForm, "Add Binding to "+application.Name)
 			app.SetFocus(bindingForm)
-		} else if event.Rune() == 100 && (applicationList.HasFocus() || menu.HasFocus()) {
+		} else if event.Rune() == 100 && (!form.HasFocus() && !bindingForm.HasFocus()) {
+			// d
 			deleteApplication()
 		} else if event.Rune() == 9 && (!form.HasFocus() && !bindingForm.HasFocus()) {
+			// tab
 			primitive := app.GetFocus()
 			actualPrimitiveIndex := primitives[primitive]
 			app.SetFocus(getNextFocus(actualPrimitiveIndex + 1))
@@ -108,14 +114,41 @@ func main() {
 
 }
 
-func initFocusMap() {
-	primitives[menu] = 0
-	primitives[applicationList] = 1
-	primitives[table] = 2
+func initFocus() {
+	//primitives[menu] = 0
+	primitives[applicationList] = 0
+	primitives[table] = 1
 
-	primitivesIndexMap[0] = menu
-	primitivesIndexMap[1] = applicationList
-	primitivesIndexMap[2] = table
+	//primitivesIndexMap[0] = menu
+	primitivesIndexMap[0] = applicationList
+	primitivesIndexMap[1] = table
+
+	applicationList.SetFocusFunc(func() {
+		applicationList.SetBorderColor(tcell.Color133)
+		applicationList.SetTitleColor(tcell.ColorWhite)
+		menu.SetBorderColor(tcell.ColorWhite)
+		menu.SetTitleColor(tcell.Color133)
+		detailFlex.SetBorderColor(tcell.ColorWhite)
+		detailFlex.SetTitleColor(tcell.Color133)
+
+	})
+	menu.SetFocusFunc(func() {
+		menu.SetBorderColor(tcell.Color133)
+		menu.SetTitleColor(tcell.ColorWhite)
+		applicationList.SetBorderColor(tcell.ColorWhite)
+		applicationList.SetTitleColor(tcell.Color133)
+		detailFlex.SetBorderColor(tcell.ColorWhite)
+		detailFlex.SetTitleColor(tcell.Color133)
+	})
+
+	table.SetFocusFunc(func() {
+		detailFlex.SetBorderColor(tcell.Color133)
+		detailFlex.SetTitleColor(tcell.ColorWhite)
+		applicationList.SetBorderColor(tcell.ColorWhite)
+		applicationList.SetTitleColor(tcell.Color133)
+		menu.SetBorderColor(tcell.ColorWhite)
+		menu.SetTitleColor(tcell.Color133)
+	})
 }
 
 func getNextFocus(index int) tview.Primitive {
@@ -209,7 +242,7 @@ func addApplicationForm() *tview.Form {
 	return form
 }
 
-func addBindingForm() *tview.Form {
+func addBindingForm(binding Bindings, edit bool) *tview.Form {
 	bindingForm.Clear(true)
 	bindingForm.SetFieldTextColor(tcell.Color133)
 	bindingForm.SetLabelColor(tcell.Color133)
@@ -217,20 +250,23 @@ func addBindingForm() *tview.Form {
 	bindingForm.SetFieldTextColor(tcell.ColorBlack)
 	bindingForm.SetButtonBackgroundColor(tcell.Color133)
 
-	binding := Bindings{}
-	bindingForm.AddInputField("Function", "", 20, nil, func(function string) {
+	bindingForm.AddInputField("Function", binding.Function, 20, nil, func(function string) {
 		binding.Function = function
 	})
 
-	bindingForm.AddInputField("Key Binding", "", 20, nil, func(keybind string) {
+	bindingForm.AddInputField("Key Binding", binding.Keybind, 20, nil, func(keybind string) {
 		binding.Keybind = keybind
 	})
 
 	bindingForm.AddButton("Save", func() {
-
 		var index = applicationList.GetCurrentItem()
 		application := applications[index]
-		application.Bindings = append(application.Bindings, binding)
+		if !edit {
+			binding.Index = len(application.Bindings)
+			application.Bindings = append(application.Bindings, binding)
+		} else {
+			application.Bindings[binding.Index] = binding
+		}
 		applications[index] = application
 		saveList(dbFile)
 		setDetailFlex(table, "Bindings")
@@ -238,13 +274,14 @@ func addBindingForm() *tview.Form {
 		index = applicationList.GetItemCount() - 1
 		applicationList.SetCurrentItem(index)
 		bindingForm.Clear(true)
-		app.SetFocus(applicationList)
+		app.SetFocus(table)
 
 	})
 
 	bindingForm.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEscape {
 			setDetailFlex(table, "Bindings")
+			app.SetFocus(table)
 		}
 		return event
 	})
@@ -287,6 +324,14 @@ func setBindingsTable(application *Application) {
 		rows, cols := table.GetSelectable()
 		if event.Rune() == 101 && (rows || cols) {
 			// edit
+			row, col := table.GetSelection()
+			if row == 0 {
+				return event
+			}
+			_ = col
+			addBindingForm(application.Bindings[row-1], true)
+			setDetailFlex(bindingForm, "Edit Binding to "+application.Name)
+			app.SetFocus(bindingForm)
 		} else if event.Rune() == 100 && (rows || cols) {
 			// delete
 			row, col := table.GetSelection()
