@@ -84,7 +84,7 @@ func main() {
 			app.SetFocus(form)
 		} else if event.Rune() == 65 && (applicationList.HasFocus() || menu.HasFocus()) {
 			bindingForm.Clear(true)
-			addBinding()
+			addBindingForm()
 			index := applicationList.GetCurrentItem()
 			application := applications[index]
 			setDetailFlex(bindingForm, "Add Binding to "+application.Name)
@@ -127,11 +127,12 @@ func getNextFocus(index int) tview.Primitive {
 }
 
 func setDetailFlex(element tview.Primitive, title string) {
+	app.SetFocus(applicationList)
 	detailFlex.Clear()
 	detailFlex.SetBorder(true)
-	detailFlex.AddItem(tview.NewFlex(), 0, 2, true)
+	detailFlex.AddItem(tview.NewFlex(), 0, 2, false)
 	detailFlex.AddItem(element, 0, 1, true)
-	detailFlex.AddItem(tview.NewFlex(), 0, 2, true)
+	detailFlex.AddItem(tview.NewFlex(), 0, 2, false)
 	detailFlex.SetTitle(title).SetTitleColor(tcell.Color133)
 }
 
@@ -175,7 +176,6 @@ func addApplicationForm() *tview.Form {
 	form.SetFieldBackgroundColor(tcell.ColorWhite)
 	form.SetFieldTextColor(tcell.ColorBlack)
 	form.SetButtonBackgroundColor(tcell.Color133)
-	form.SetBorder(true)
 
 	application := Application{}
 
@@ -198,17 +198,24 @@ func addApplicationForm() *tview.Form {
 		app.SetFocus(applicationList)
 
 	})
+
+	form.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			setDetailFlex(table, "Bindings")
+		}
+		return event
+	})
+
 	return form
 }
 
-func addBinding() *tview.Form {
+func addBindingForm() *tview.Form {
 	bindingForm.Clear(true)
 	bindingForm.SetFieldTextColor(tcell.Color133)
 	bindingForm.SetLabelColor(tcell.Color133)
 	bindingForm.SetFieldBackgroundColor(tcell.ColorWhite)
 	bindingForm.SetFieldTextColor(tcell.ColorBlack)
 	bindingForm.SetButtonBackgroundColor(tcell.Color133)
-	bindingForm.SetBorder(true)
 
 	binding := Bindings{}
 	bindingForm.AddInputField("Function", "", 20, nil, func(function string) {
@@ -234,6 +241,14 @@ func addBinding() *tview.Form {
 		app.SetFocus(applicationList)
 
 	})
+
+	bindingForm.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			setDetailFlex(table, "Bindings")
+		}
+		return event
+	})
+
 	return bindingForm
 }
 
