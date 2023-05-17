@@ -6,6 +6,7 @@ import (
 	"github.com/rivo/tview"
 	"log"
 	"os"
+	"shortcuts/help"
 	"shortcuts/utils"
 	"strconv"
 )
@@ -31,7 +32,6 @@ var form = tview.NewForm()
 var bindingForm = tview.NewForm()
 var applicationList = tview.NewList().ShowSecondaryText(false).SetSelectedBackgroundColor(tcell.Color133)
 var flex = tview.NewFlex()
-var help = tview.NewFlex()
 var detailFlex = tview.NewFlex()
 var table = tview.NewTable().SetBorders(true)
 var menu = tview.NewTextView().
@@ -61,6 +61,8 @@ func main() {
 		log.Fatal("Error during Unmarshal(): ", err)
 	}
 
+	var helpFlex = help.GetHelp(pages)
+
 	addApplicationList()
 
 	applicationList.SetSelectedFunc(func(index int, name string, secondName string, shortcut rune) {
@@ -78,52 +80,25 @@ func main() {
 			AddItem(detailFlex, 0, 4, true), 0, 6, true).
 		AddItem(menu, 0, 1, true)
 
-	help.SetBorder(true)
-	help.SetTitle("Help")
-	help.SetDirection(tview.FlexRow)
-	help.SetBorderColor(tcell.Color133)
-
-	helpText :=
-		"q:    \t\tquit\n" +
-			"TAB:  \t\tswitch focus between application list and binding view\n" +
-			"a:    \t\tadd application\n" +
-			"d:    \t\tdelete application\n" +
-			"ENTER:\t\ton binding view start table selection mode\n" +
-			"a:    \t\tin table selection mode add binging to application\n" +
-			"e:    \t\tin table selection mode edit selected binding\n" +
-			"d:    \t\tin table selection mode delete selected binding\n" +
-			"ESC:  \t\texit table selection mode"
-
-	help.AddItem(tview.NewTextView().SetText("ESC: back to application"), 0, 1, true)
-	help.AddItem(tview.NewTextView().SetText(helpText), 0, 8, true)
-	help.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEscape {
-			pages.SwitchToPage("Menu")
-			return event
-		} else {
-			return nil
-		}
-	})
-
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Rune() == 113 && !form.HasFocus() && !bindingForm.HasFocus() {
 			// q
 			app.Stop()
-		} else if event.Rune() == 97 && (!form.HasFocus() && !bindingForm.HasFocus() && !editMode && !help.HasFocus()) {
+		} else if event.Rune() == 97 && (!form.HasFocus() && !bindingForm.HasFocus() && !editMode && !helpFlex.HasFocus()) {
 			// a
 			form.Clear(true)
 			addApplicationForm()
 			setDetailFlex(form, "Add Application")
 			app.SetFocus(form)
-		} else if event.Rune() == 100 && (!form.HasFocus() && !bindingForm.HasFocus() && !editMode && !help.HasFocus()) {
+		} else if event.Rune() == 100 && (!form.HasFocus() && !bindingForm.HasFocus() && !editMode && !helpFlex.HasFocus()) {
 			// d
 			deleteApplication()
-		} else if event.Rune() == 9 && (!form.HasFocus() && !bindingForm.HasFocus() && !help.HasFocus()) {
+		} else if event.Rune() == 9 && (!form.HasFocus() && !bindingForm.HasFocus() && !helpFlex.HasFocus()) {
 			// tab
 			primitive := app.GetFocus()
 			actualPrimitiveIndex := primitives[primitive]
 			app.SetFocus(getNextFocus(actualPrimitiveIndex + 1))
-		} else if event.Rune() == 63 && !help.HasFocus() {
+		} else if event.Rune() == 63 && !helpFlex.HasFocus() {
 			pages.SwitchToPage("Help")
 		}
 
@@ -131,7 +106,7 @@ func main() {
 	})
 
 	pages.AddPage("Menu", flex, true, true)
-	pages.AddPage("Help", help, true, false)
+	pages.AddPage("Help", helpFlex, true, false)
 
 	if err := app.SetRoot(pages, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
