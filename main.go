@@ -56,7 +56,6 @@ func main() {
 	}
 
 	err = json.Unmarshal(content, &applications)
-
 	if err != nil {
 		log.Fatal("Error during Unmarshal(): ", err)
 	}
@@ -69,8 +68,8 @@ func main() {
 		setBindingsTable(&applications[index])
 		setDetailFlex(table, applications[index].Name+" Bindings")
 	})
-
 	applicationList.SetBorder(true).SetTitle("Applications").SetTitleColor(tcell.Color133)
+
 	menu.SetBorder(true).SetTitle("Menu").SetTitleColor(tcell.Color133)
 	setDetailFlex(table, "Bindings")
 
