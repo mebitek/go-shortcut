@@ -20,7 +20,7 @@ go run main.go
 | function | key                                                    |
 |----------|--------------------------------------------------------|
 | q        | quit                                                   |
-| TAB      | swtich focus between application list and binding view |
+| TAB      | switch focus between application list and binding view |
 | a        | add application                                        |
 | d        | delete application                                     |
 | enter    | on binding view start table selection mode             |
